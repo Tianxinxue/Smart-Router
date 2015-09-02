@@ -1,5 +1,5 @@
-# IP-Camera  
-项目名称：基于S3C6410平台的v4l2视频采集传输系统  
+# Smart Router  
+项目名称：基于S3C6410平台的智能路由  
 硬件平台：飞凌ok6410A开发板+中星微zc301 USB摄像头  
 开发平台：windows7 64bit+VMware10.1+Ubuntu14.04  
 项目进展：  
