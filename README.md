@@ -1,2 +1,2 @@
 # Smart Router  
-项目主页：<www.icen.cc>
+项目主页：<http://www.icen.cc>
