@@ -25,5 +25,6 @@ extern int stop_capturing(v4l2_device_t *dev);
 extern int uninit_device(v4l2_device_t *dev);
 extern int close_device(v4l2_device_t *dev);
 extern int cam_get_frame(v4l2_device_t *dev);
+extern int yuy2_yuv420(unsigned char *src_buf,unsigned char *out_buf, int src_width, int src_height);
 
 #endif  /*_V4L2_H*/
