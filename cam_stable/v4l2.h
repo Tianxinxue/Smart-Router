@@ -2,6 +2,8 @@
 #define _V4L2_H
 
 #define CLEAR(x) memset (&(x), 0, sizeof (x))
+#define frame_width 176
+#define frame_height  144
 
 struct buffer { 
     void * start;
