@@ -1,33 +1,37 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <string.h>
 #include "udp.h"
 #include "v4l2.h"
+#include "SsbSipH264Encode.h"
+#include "SsbSipLogMsg.h"
 
-#define MAX 8 //需要生产的数量
+#define MAX 1 //需要生产的数量
 
-unsigned char  *cur_frame = NULL;
+FILE *fp;
+unsigned char  *cur_frame    = NULL;
 unsigned char  *yuv420_frame = NULL;
+unsigned char  *h264_frame   = NULL;
+unsigned char	 *p_inbuf;
+unsigned char	*p_outbuf;
 int  cur_frame_len;
+int yuv420_size = frame_width*frame_height * 1.5;
 /*互斥锁条件变量*/
 pthread_mutex_t	cam_mutex;
 pthread_cond_t 	cam_condc,cam_condp;
 int cam_cond_flag = 0;
 int sock;   
-char buff[1024];
-struct sockaddr_in clientAddr;
-int len = sizeof(clientAddr);
-int num = 48 ;
 v4l2_device_t device;
 int server_count = 0;
 int camera_count = 0;
-char *name = "/dev/video0";
+char *name = "/dev/video2";
+void *mfc_handle;
 
 int get_cur_frame(const void *ptr, int siz)
 {
 	cur_frame     = (unsigned char *)ptr;
 	cur_frame_len = siz;	
-	printf("get_cur_frame\n");
 	return 0;
 }
 
@@ -71,52 +75,38 @@ void *camera_thread_fnc()
 }
 
 
-int frm_nu = 0;
 void *server_thread_fnc()
 {
-    int yuv420_size = frame_width*frame_height * 1.5;
-    char *flg = "q";
-      
+         
 #if 0
     int n ,i;
     int pic_nu = cur_frame_len/1024;
     int pic_yu = cur_frame_len%1024;
     for(i=0;i<pic_nu;i++)
     {  
-        frm_nu++;
-        //n = sendto(sock, cur_frame+1024*i, 1024, 0, (struct sockaddr *)&clientAddr, sizeof(clientAddr));
         send(sock,cur_frame+1024*i,1024,0);
        printf("fram:%d\n",frm_nu);
-	 if (n < 0)
-        {
-            perror("sendto");
-            
-        }
+	     if (n < 0)
+       {
+            perror("sendto");   
+       }
     }
-    if(pic_yu != 0)
-       // sendto(sock, cur_frame+1024*pic_nu, pic_yu, 0, (struct sockaddr *)&clientAddr, sizeof(clientAddr));
-    printf("pic_nu:%d pic_yu:%d\n",pic_nu,pic_yu);
 #endif
-
     int i;
+    long size;
     for(i=1; i<=MAX; i++)
     {
         pthread_mutex_lock(&cam_mutex);//互斥使用缓冲区
         while(cam_cond_flag ==0) pthread_cond_wait(&cam_condc, &cam_mutex);
         printf("consumer consume item %d\n",i);
-        num++;
-        int h;
-        char filename[5] =".yuv";
-        for(h=4;h>=0;h--)
-            filename[h] = filename[h-1];
-        filename[0] = num;
         yuy2_yuv420(cur_frame,yuv420_frame,frame_width,frame_height);
-        printf("num: %d name :%s\n",num,filename);
-        FILE *fp;
-        fp = fopen(filename, "wa+");
+        // copy YUV data into input buffer
+		    memcpy(p_inbuf, yuv420_frame, yuv420_size);
+		    SsbSipH264EncodeExe(mfc_handle);
+		    p_outbuf = SsbSipH264EncodeGetOutBuf(mfc_handle, &size);
         //fwrite(cur_frame, cur_frame_len, 1, fp);
-        fwrite(yuv420_frame, yuv420_size, 1, fp);
-        fclose(fp);
+        //fwrite(yuv420_frame, yuv420_size, 1, fp);
+        fwrite(p_outbuf,size,1,fp);
         cam_cond_flag = 0;
         pthread_cond_signal(&cam_condp);//唤醒生产者
         pthread_mutex_unlock(&cam_mutex);//释放缓冲区
@@ -128,20 +118,33 @@ void *server_thread_fnc()
 
 int main(int argc, char ** argv) 
 {
-    int yuv420_size = frame_width*frame_height * 1.5;
+	  int slices[2];
     pthread_t camera_thread;/*摄像头采集线程*/
     pthread_t server_thread; /*服务器处理当前帧线程*/
-    int n;
    // sock = udp_server_init(8888);
     //sock = tcp_server_init(8888);
     if(sock < 0)
     {
         printf("init tcp server error\n");
-	  return -1;	
+	      return -1;	
     }
     printf("init tcp server ok sock is %d\n",sock);
     device.process_image = get_cur_frame;
     yuv420_frame = (unsigned char *)malloc(yuv420_size*sizeof(char));
+    fp = fopen("test.yuv", "wa+");
+    mfc_handle = SsbSipH264EncodeInit(frame_width, frame_height, 20, 1000, 1);
+    if (mfc_handle == NULL) 
+    {
+		    LOG_MSG(LOG_ERROR, "Test_Encoder", "SsbSipH264EncodeInit Failed\n");
+		    return -1;
+	  }
+    // Setting multiple slices
+    // This setting must be called before SsbSipH264EncodeExe()
+    slices[0] = 0;	// 0 for single, 1 for multiple
+	  slices[1] = 4;	// count of slices
+	  SsbSipH264EncodeSetConfig(mfc_handle, H264_ENC_SETCONF_NUM_SLICES, slices);
+	  SsbSipH264EncodeExe(mfc_handle);
+	  p_inbuf = SsbSipH264EncodeGetInBuf(mfc_handle, 0);
     if ( -1 == camera_run(&device,name))
         return -1;
     /*初始化互斥锁和条件变量*/
@@ -159,6 +162,8 @@ int main(int argc, char ** argv)
     pthread_cond_destroy(&cam_condp);
     pthread_mutex_destroy(&cam_mutex);
    // close(sock);
+   SsbSipH264EncodeDeInit(mfc_handle);
+   fclose(fp);
    free(yuv420_frame); 
    yuv420_frame=NULL;
 	

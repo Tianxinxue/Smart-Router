@@ -14,8 +14,6 @@
 #include <linux/videodev2.h>
 #include "v4l2.h"  
 
-int frame_nu = 0;
-
 
 int open_device(const char *name,v4l2_device_t *dev) 
 {
@@ -138,15 +136,24 @@ int init_device(v4l2_device_t *dev)
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     fmt.fmt.pix.width = frame_width ;
     fmt.fmt.pix.height = frame_height;
-   // fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_JPEG;
-   fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
+    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
     fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
 
     if (-1 == ioctl(dev->fd, VIDIOC_S_FMT, &fmt))
     {
          printf("set video format error\n");
          return -1;
-     }
+    }
+    if(ioctl(dev->fd, VIDIOC_G_FMT, &fmt) == -1)                                      //检查格式
+	  {
+        printf("Unable to get format\n");                                         
+		    return -1;
+	  } 
+    printf("current format:\t%c%c%c%c\n",fmt.fmt.pix.pixelformat & 0xFF, (fmt.fmt.pix.pixelformat >> 8) &
+     	    0xFF,(fmt.fmt.pix.pixelformat >> 16) & 0xFF, (fmt.fmt.pix.pixelformat >> 24) & 0xFF);
+    printf("current height:\t\t%d\n",fmt.fmt.pix.height);
+    printf("current width:\t\t%d\n\n",fmt.fmt.pix.width);
+	
 
     /* Buggy driver paranoia. */
     min = fmt.fmt.pix.width * 2;
@@ -209,7 +216,6 @@ int uninit_device(v4l2_device_t *dev)
 
 int read_frame(v4l2_device_t *dev) 
 {
-     frame_nu++;
     struct v4l2_buffer buf; 
     CLEAR(buf);
 	
@@ -225,7 +231,6 @@ int read_frame(v4l2_device_t *dev)
      }
 			          
     dev->process_image(dev->buffers[buf.index].start, buf.length);   /*处理当前帧*/
-    printf("buff.index %d buff.length %d frame_num:%d\n",buf.index,buf.length,frame_nu);
      /*从视频缓冲区的输出队列中取得一个已经保存有一帧视频数据的视频缓冲区*/
     if (-1 == ioctl(dev->fd, VIDIOC_QBUF, &buf))  
     {
