@@ -11,7 +11,6 @@
 #include <sys/mman.h>          
 #include <sys/ioctl.h>
 #include <asm/types.h>    
-#include <linux/videodev2.h>
 #include "v4l2.h"  
 
 
@@ -165,6 +164,7 @@ int init_device(v4l2_device_t *dev)
 	
     if ( -1 == init_mmap(dev))
         return -1;
+    printf("init_device\n");
     return 0;
 	  
 }
@@ -177,23 +177,26 @@ int start_capturing(v4l2_device_t *dev)
     for (i = 0; i < dev->n_buffers; ++i) 
     {
         struct v4l2_buffer buf;
-	 CLEAR(buf);
+	      CLEAR(buf);
         buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	 buf.memory = V4L2_MEMORY_MMAP;
-	 buf.index = i;
-	 if (-1 == ioctl(dev->fd, VIDIOC_QBUF, &buf))
-	 {
+	      buf.memory = V4L2_MEMORY_MMAP;
+	      buf.index = i;
+	      if (-1 == ioctl(dev->fd, VIDIOC_QBUF, &buf))
+	      {
             printf("vidioc_qbuf error\n");
-	     return -1;
+	          return -1;
         }
+       
     }
-
+     printf("6\n");
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    //运行到这里的时候会导致系统重启！！！！！
     if (-1 == ioctl(dev->fd, VIDIOC_STREAMON, &type))
     {
         printf("vidioc_streamon error\n");
-	  return -1;
+	      return -1;
     }
+    printf("7\n");
     return 0;
 	  
 }
@@ -213,57 +216,6 @@ int uninit_device(v4l2_device_t *dev)
     return 0;
 }
 
-
-int read_frame(v4l2_device_t *dev) 
-{
-    struct v4l2_buffer buf; 
-    CLEAR(buf);
-	
-    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    buf.memory = V4L2_MEMORY_MMAP;
-	
-  /*这里为什么不在取出视频缓冲区以后再处理数据？*/
-  /*投放一个空的视频缓冲区到视频缓冲区输入队列中*/
-    if (-1 == ioctl(dev->fd, VIDIOC_DQBUF, &buf)) 
-    {
-        printf("vidioc_dqbuf error\n");
-	      return -1;
-    }
-			          
-    dev->process_image(dev->buffers[buf.index].start, buf.length);   /*处理当前帧*/
-     /*从视频缓冲区的输出队列中取得一个已经保存有一帧视频数据的视频缓冲区*/
-    if (-1 == ioctl(dev->fd, VIDIOC_QBUF, &buf))  
-    {
-        printf("vidioc_buf error\n");
-	 return -1;
-     }
-    return 0;
-}
-int cam_get_frame(v4l2_device_t *dev)
-{
-    fd_set fds;
-    struct timeval tv;
-    int ret;
-    FD_ZERO(&fds);
-    FD_SET(dev->fd, &fds);
-    /* Timeout. */
-    tv.tv_sec = 2;
-    tv.tv_usec = 0;   
-    ret= select(dev->fd + 1, &fds, NULL, NULL, &tv);
-    if (-1 == ret) 
-    {
-        printf("select error\n");
-	 return -1;
-    }
-
-    else if (0 == ret) 
-    {
-        printf("select timeout/n");
-	 return -1;
-    }
-    else
-        read_frame(dev);	
-}
     
 int stop_capturing(v4l2_device_t *dev) 
 {

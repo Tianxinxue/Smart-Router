@@ -9,9 +9,46 @@
 #include <netinet/in.h> 
 #include "rtp.h"
 
-static int FindStartCode2 (unsigned char *Buf);//find start code:0x000001  
-static int FindStartCode3 (unsigned char *Buf);//find start code:0x00000001  
+int TCP_init(int port)
+{
+    int sockfd;
+	  int clientfd;
+	
+    struct sockaddr_in server_addr; 
+    struct sockaddr_in client_addr;
+    int sin_size;
+    
+    if((sockfd=socket(AF_INET,SOCK_STREAM,0))==-1)  
+    {
+        printf("Socket error:%s\n\a",strerror(errno));
+        exit(1);
+     }
+    bzero(&server_addr,sizeof(struct sockaddr_in));
+    server_addr.sin_family=AF_INET;
+    server_addr.sin_addr.s_addr=htonl(INADDR_ANY);
+    server_addr.sin_port=htons(port);
 
+    if(bind(sockfd,(struct sockaddr *)(&server_addr),sizeof(struct sockaddr))==-1)
+    {
+        printf("Bind error:%s\n\a",strerror(errno));
+        exit(1);
+    }
+ 
+    if(listen(sockfd, 10)==-1)
+    {
+        fprintf(stderr,"Listen error:%s\n\a",strerror(errno));
+        exit(1);
+     }
+    sin_size=sizeof(struct sockaddr_in);
+
+    if((clientfd=accept(sockfd,(struct sockaddr *)(&client_addr),(socklen_t *)&sin_size))==-1)
+    {
+        fprintf(stderr,"Accept error:%s\n\a",strerror(errno));
+        exit(1);
+    } 
+	
+    return clientfd;	
+}
 
 int UDP_init() 
 {

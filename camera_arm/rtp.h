@@ -1,7 +1,7 @@
 #ifndef _RTP_H_
 #define _RTP_H_
 
-#define UDP_DEST_IP                "192.168.1.102"
+#define UDP_DEST_IP                "192.168.1.103"
 #define UDP_DEST_PORT            1234
 #define H264                    96
 
@@ -46,6 +46,7 @@ typedef struct {
     unsigned char S;//:1;      
 } FU_HEADER; /**//* 1 BYTES */  
 
+int TCP_init(int port);
 int UDP_init();
 int RTP_send(int socketfd,char *buf,unsigned int len);
 #endif
