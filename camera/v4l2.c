@@ -136,7 +136,7 @@ int init_device(v4l2_device_t *dev)
     fmt.fmt.pix.width = frame_width ;
     fmt.fmt.pix.height = frame_height;
     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
-    fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
+    fmt.fmt.pix.field = V4L2_FIELD_INTERLACED; //隔行扫描
 
     if (-1 == ioctl(dev->fd, VIDIOC_S_FMT, &fmt))
     {
@@ -150,9 +150,8 @@ int init_device(v4l2_device_t *dev)
 	  } 
     printf("current format:\t%c%c%c%c\n",fmt.fmt.pix.pixelformat & 0xFF, (fmt.fmt.pix.pixelformat >> 8) &
      	    0xFF,(fmt.fmt.pix.pixelformat >> 16) & 0xFF, (fmt.fmt.pix.pixelformat >> 24) & 0xFF);
-    printf("current height:\t\t%d\n",fmt.fmt.pix.height);
-    printf("current width:\t\t%d\n\n",fmt.fmt.pix.width);
-	
+    printf("current width:\t\t%d\n",fmt.fmt.pix.width);
+	  printf("current height:\t\t%d\n\n",fmt.fmt.pix.height);
 
     /* Buggy driver paranoia. */
     min = fmt.fmt.pix.width * 2;
@@ -188,15 +187,12 @@ int start_capturing(v4l2_device_t *dev)
         }
        
     }
-     printf("6\n");
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    //运行到这里的时候会导致系统重启！！！！！
     if (-1 == ioctl(dev->fd, VIDIOC_STREAMON, &type))
     {
         printf("vidioc_streamon error\n");
 	      return -1;
     }
-    printf("7\n");
     return 0;
 	  
 }
@@ -241,64 +237,3 @@ int close_device(v4l2_device_t *dev)
 	  
 }
 
-int yuy2_yuv420(unsigned char *src_buf,unsigned char *out_buf, int src_width, int src_height)
-{
-    int src_size = 0, out_size = 0, tem_size = 0;
-    unsigned char *Y, *U, *V, *Y2, *U2, *V2;
-    unsigned char *tem_buf;
-    unsigned char *p=NULL;
-    
-    src_size = (src_width * src_height) << 1 ;//对于YUY2 4:2:2   
-    tem_size = (src_width * src_height) << 1; ///对于YUV 4:2:2
-    tem_buf = (unsigned char *)malloc(tem_size*sizeof(char));
-    memset(tem_buf, 0, tem_size);   
-    out_size = src_width*src_height * 1.5;//对于YUV 4:2:0
-  
-    p = src_buf;
-    Y = tem_buf;
-    U = Y + src_width*src_height;
-    V = U + (src_width*src_height>>1);
-    
-    Y2 = out_buf;
-    U2 = Y2 + src_width*src_height;
-    V2 = U2 + (src_width*src_height>>2);
-    
-    //由打包YUYV变成平板YUV
-    int k, j;
-    for( k=0; k<src_height; ++k)
-    { 
-        for( j=0; j<(src_width>>1); ++j)
-        {    
-            Y[j*2] = p[4*j];    
-            U[j] = p[4*j+1];
-            Y[j*2+1] = p[4*j+2];
-            V[j] = p[4*j+3];
-        }
-        p = p + src_width*2;
-        Y = Y + src_width;
-        U = U + (src_width>>1);
-        V = V + (src_width>>1);
-    }
-    
-    //复位
-    Y = tem_buf;
-    U = Y + src_width*src_height;
-    V = U + (src_width*src_height>>1); 
-    int l;
-    for( l=0; l<src_height/2; ++l)
-    {
-        memcpy(U2, U, src_width>>1);
-        memcpy(V2, V, src_width>>1);
-   
-        U2 = U2 + (src_width>>1);
-        V2 = V2 + (src_width>>1);
-   
-        U = U + (src_width);
-        V = V + (src_width);
-    }
-    memcpy(Y2, Y, src_width*src_height);
-    free(tem_buf); 
-    tem_buf=NULL;
-    return 0;
-  
-} 
