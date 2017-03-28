@@ -1,7 +1,7 @@
 #ifndef _RTP_H_
 #define _RTP_H_
 
-#define UDP_DEST_IP                "192.168.1.3"
+#define UDP_DEST_IP                "127.0.0.1"
 #define UDP_DEST_PORT            1234
 #define H264                    96
 
